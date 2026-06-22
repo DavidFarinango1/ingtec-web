@@ -86,7 +86,7 @@ function renderCategories() {
 function renderFeatured() {
   const grid = $("#featured-grid");
   if (!grid) return;
-  const featured = PRODUCTS.slice(0, 4);
+  const featured = Store.getProducts().slice(0, 4);
   grid.innerHTML = featured.map(productCard).join("");
 }
 
@@ -105,7 +105,8 @@ function renderCatalog() {
     .join("");
 
   function apply(cat) {
-    const list = cat === "all" ? PRODUCTS : PRODUCTS.filter((p) => p.category === cat);
+    const all = Store.getProducts();
+    const list = cat === "all" ? all : all.filter((p) => p.category === cat);
     grid.innerHTML = list.length
       ? list.map(productCard).join("")
       : `<p class="no-results">No hay productos en esta categoría todavía.</p>`;

@@ -60,6 +60,26 @@ Las imágenes de ejemplo vienen de Unsplash (requieren internet). Para usar las 
 ### 4. Mapa
 En `contacto.html` reemplaza el `src` del `<iframe>` por tu ubicación real de Google Maps (Compartir → Insertar mapa).
 
+## 🔐 Panel de administrador (`admin.html`)
+
+Página para gestionar el catálogo sin tocar código. Ábrela en `tusitio/admin.html`.
+
+- **Contraseña:** se define en `assets/js/admin.js` → `const ADMIN_PIN = "ingtec2024";` (⚠️ cámbiala). Es seguridad básica del lado del cliente; para algo sensible necesitarías un backend.
+- **Funciones:** agregar, editar y eliminar productos, subir imagen (URL o archivo), buscar y previsualizar.
+- **Dónde se guardan:** en el navegador (localStorage). Los cambios se ven al instante en el catálogo **de ese navegador**.
+
+### Para que los cambios sean permanentes y visibles para todos
+Como el sitio es estático (sin base de datos), sigue este flujo:
+1. En el admin, haz tus cambios y pulsa **“⬇ Exportar products.js”**.
+2. Reemplaza el archivo descargado en `assets/js/products.js`.
+3. Sube a GitHub:
+   ```bash
+   git add .
+   git commit -m "Nuevos productos"
+   git push
+   ```
+> Botones extra: **Respaldo JSON** (backup), **Importar JSON** (restaurar un backup) y **Restaurar original** (vuelve al `products.js` del repo).
+
 ## 🚀 Cómo verlo
 
 - **Rápido:** doble clic en `index.html`.
