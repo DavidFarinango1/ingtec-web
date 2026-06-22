@@ -1,0 +1,18 @@
+# Dependencias (por si en el futuro agregas Node)
+node_modules/
+package-lock.json
+
+# Sistema operativo
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Editores
+.vscode/
+.idea/
+*.swp
+
+# Logs y temporales
+*.log
+.cache/
+dist/
