@@ -5,7 +5,8 @@
 // --- Helpers ---
 const $ = (sel, ctx = document) => ctx.querySelector(sel);
 const $$ = (sel, ctx = document) => [...ctx.querySelectorAll(sel)];
-const money = (n) => "$" + n.toLocaleString("es-EC");
+const money = (n) =>
+  "$" + Number(n).toLocaleString("es-EC", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
 function waLink(message) {
   const base = "https://wa.me/" + SITE.whatsapp;

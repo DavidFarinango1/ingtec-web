@@ -12,7 +12,8 @@ const SESSION_KEY = "ingtec_admin_ok";
 
 const $ = (s, c = document) => c.querySelector(s);
 const $$ = (s, c = document) => [...c.querySelectorAll(s)];
-const money = (n) => "$" + Number(n).toLocaleString("es-EC");
+const money = (n) =>
+  "$" + Number(n).toLocaleString("es-EC", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
 let editingId = null; // null = creando nuevo
 

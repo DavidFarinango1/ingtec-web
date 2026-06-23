@@ -16,3 +16,6 @@ desktop.ini
 *.log
 .cache/
 dist/
+
+# Servidor de desarrollo local (no necesario en producción)
+dev-server.js

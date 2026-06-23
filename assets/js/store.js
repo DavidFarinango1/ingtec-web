@@ -4,7 +4,7 @@
    y que esos cambios se reflejen en el sitio (en este navegador).
    ============================================================ */
 
-const STORE_KEY = "ingtec_products_v1";
+const STORE_KEY = "ingetec_products_v2";
 
 const Store = {
   /** Devuelve los productos guardados o, si no hay, los de products.js */
