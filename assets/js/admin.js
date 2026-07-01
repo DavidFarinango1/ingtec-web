@@ -1,83 +1,118 @@
 /* ============================================================
-   Ingtec — Panel de administrador
-   Gestiona el catálogo en el navegador (localStorage) y permite
-   exportar el archivo products.js para subirlo a GitHub.
+   Ingetec — Panel de administrador (Firebase Auth + Firestore)
+   El acceso es con correo y contraseña (Firebase Authentication).
+   Los productos se guardan en Firestore y se publican al instante
+   para todos los visitantes del sitio.
    ============================================================ */
-
-/* 🔐 Cambia esta contraseña. NOTA: es seguridad básica del lado del
-   cliente (cualquiera con conocimientos puede verla en el código).
-   Para datos sensibles necesitarías un backend real. */
-const ADMIN_PIN = "ingtec2024";
-const SESSION_KEY = "ingtec_admin_ok";
 
 const $ = (s, c = document) => c.querySelector(s);
 const $$ = (s, c = document) => [...c.querySelectorAll(s)];
 const money = (n) =>
   "$" + Number(n).toLocaleString("es-EC", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
+const auth = firebase.auth();
+const productsCol = () => db.collection("products");
+const categoriesCol = () => db.collection("categories");
+
 let editingId = null; // null = creando nuevo
 
-/* ---------------- Login ---------------- */
+/* ---------------- Login (Firebase Auth) ---------------- */
 function initLogin() {
-  const ok = sessionStorage.getItem(SESSION_KEY) === "1";
-  $("#login-view").style.display = ok ? "none" : "grid";
-  $("#dashboard-view").style.display = ok ? "block" : "none";
-  if (ok) initDashboard();
+  // Mantiene la sesión iniciada entre visitas
+  auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL).catch(() => {});
+
+  auth.onAuthStateChanged((user) => {
+    const isAdmin = user && user.email && user.email.toLowerCase() === ADMIN_EMAIL.toLowerCase();
+    if (user && !isAdmin) {
+      // Alguien autenticado pero no autorizado
+      $("#login-error").textContent = "Esta cuenta no tiene permisos de administrador.";
+      auth.signOut();
+      return;
+    }
+    $("#login-view").style.display = isAdmin ? "none" : "grid";
+    $("#dashboard-view").style.display = isAdmin ? "block" : "none";
+    if (isAdmin) initDashboard();
+  });
 
   $("#login-form").addEventListener("submit", (e) => {
     e.preventDefault();
-    const val = $("#admin-pin").value;
-    if (val === ADMIN_PIN) {
-      sessionStorage.setItem(SESSION_KEY, "1");
-      $("#login-view").style.display = "none";
-      $("#dashboard-view").style.display = "block";
-      initDashboard();
-    } else {
-      $("#login-error").textContent = "Contraseña incorrecta. Intenta de nuevo.";
-      $("#admin-pin").value = "";
-    }
+    const email = $("#admin-email").value.trim();
+    const pass = $("#admin-pin").value;
+    const btn = $("#login-btn");
+    $("#login-error").textContent = "";
+    btn.disabled = true;
+    btn.textContent = "Ingresando...";
+    auth.signInWithEmailAndPassword(email, pass)
+      .catch((err) => {
+        $("#login-error").textContent = authErrorMsg(err.code);
+        $("#admin-pin").value = "";
+      })
+      .finally(() => {
+        btn.disabled = false;
+        btn.textContent = "Ingresar";
+      });
   });
 
-  $("#logout-btn").addEventListener("click", () => {
-    sessionStorage.removeItem(SESSION_KEY);
-    location.reload();
-  });
+  $("#logout-btn").addEventListener("click", () => auth.signOut());
+}
+
+function authErrorMsg(code) {
+  switch (code) {
+    case "auth/invalid-email":
+      return "El correo no es válido.";
+    case "auth/user-not-found":
+    case "auth/wrong-password":
+    case "auth/invalid-credential":
+      return "Correo o contraseña incorrectos.";
+    case "auth/too-many-requests":
+      return "Demasiados intentos. Espera un momento e intenta de nuevo.";
+    case "auth/network-request-failed":
+      return "Sin conexión. Revisa tu internet.";
+    default:
+      return "No se pudo iniciar sesión. Intenta de nuevo.";
+  }
 }
 
 /* ---------------- Dashboard ---------------- */
 let dashboardReady = false;
 function initDashboard() {
-  if (dashboardReady) {
-    renderList();
-    return;
-  }
+  if (dashboardReady) return;
   dashboardReady = true;
 
-  fillCategorySelect();
-  renderList();
   bindForm();
+  bindCategoryForm();
+
+  // Productos y categorías en tiempo real desde Firestore
+  Store.onChange(() => {
+    fillCategorySelect();
+    renderList();
+    renderCatList();
+  });
 
   $("#search").addEventListener("input", renderList);
   $("#new-btn").addEventListener("click", () => resetForm());
-  $("#export-js").addEventListener("click", exportProductsJs);
   $("#export-json").addEventListener("click", exportJson);
-  $("#import-json").addEventListener("change", importJson);
-  $("#reset-btn").addEventListener("click", resetCatalog);
 }
 
+// Rellena el <select> de categorías conservando la selección actual
 function fillCategorySelect() {
   const sel = $("#f-category");
-  sel.innerHTML = CATEGORIES.map((c) => `<option value="${c.id}">${c.name}</option>`).join("");
+  if (!sel) return;
+  const current = sel.value;
+  const cats = Store.getCategories();
+  sel.innerHTML = cats.map((c) => `<option value="${c.id}">${c.name}</option>`).join("");
+  if (current && cats.some((c) => c.id === current)) sel.value = current;
 }
 
 function catName(id) {
-  const c = CATEGORIES.find((c) => c.id === id);
-  return c ? c.short : id;
+  const c = Store.getCategories().find((c) => c.id === id);
+  return c ? c.short || c.name : id;
 }
 
 /* ---------------- Lista de productos ---------------- */
 function renderList() {
   const list = $("#admin-list");
+  if (!list) return;
   const q = ($("#search").value || "").toLowerCase().trim();
   let products = Store.getProducts();
   if (q) {
@@ -118,10 +153,10 @@ function renderList() {
     .join("");
 
   $$("[data-edit]", list).forEach((b) =>
-    b.addEventListener("click", () => editProduct(Number(b.dataset.edit)))
+    b.addEventListener("click", () => editProduct(b.dataset.edit))
   );
   $$("[data-del]", list).forEach((b) =>
-    b.addEventListener("click", () => deleteProduct(Number(b.dataset.del)))
+    b.addEventListener("click", () => deleteProduct(b.dataset.del))
   );
 }
 
@@ -174,11 +209,12 @@ function resetForm() {
 }
 
 function editProduct(id) {
-  const p = Store.getProducts().find((x) => x.id === id);
+  const p = Store.getProducts().find((x) => String(x.id) === String(id));
   if (!p) return;
   editingId = id;
+  const cats = Store.getCategories();
   $("#f-name").value = p.name || "";
-  $("#f-category").value = p.category || CATEGORIES[0].id;
+  $("#f-category").value = p.category || (cats[0] && cats[0].id) || "";
   $("#f-specs").value = p.specs || "";
   $("#f-price").value = p.price || "";
   $("#f-oldprice").value = p.oldPrice || "";
@@ -191,49 +227,173 @@ function editProduct(id) {
   $("#product-form").scrollIntoView({ behavior: "smooth", block: "start" });
 }
 
-function saveProduct() {
-  const products = Store.getProducts();
+async function saveProduct() {
   const data = {
     name: $("#f-name").value.trim(),
     category: $("#f-category").value,
     specs: $("#f-specs").value.trim(),
     price: Number($("#f-price").value) || 0,
-    oldPrice: $("#f-oldprice").value ? Number($("#f-oldprice").value) : undefined,
-    tag: $("#f-tag").value,
+    tag: $("#f-tag").value || "",
     img: $("#f-img").value.trim(),
   };
+  const oldPrice = $("#f-oldprice").value ? Number($("#f-oldprice").value) : null;
+  data.oldPrice = oldPrice; // null si no aplica (se puede limpiar al editar)
+
   if (!data.name || !data.price) {
     toast("El nombre y el precio son obligatorios.");
     return;
   }
-  // limpia oldPrice undefined para no guardar basura
-  if (!data.oldPrice) delete data.oldPrice;
 
-  if (editingId != null) {
-    const idx = products.findIndex((p) => p.id === editingId);
-    products[idx] = { ...products[idx], ...data, id: editingId };
-    toast("Producto actualizado ✓");
-  } else {
-    products.push({ id: Store.nextId(products), ...data });
-    toast("Producto agregado ✓");
+  const btn = $("#product-form button[type=submit]");
+  btn.disabled = true;
+
+  try {
+    if (editingId != null) {
+      await productsCol().doc(String(editingId)).set(data, { merge: true });
+      toast("Producto actualizado ✓");
+    } else {
+      data.createdAt = firebase.firestore.FieldValue.serverTimestamp();
+      await productsCol().add(data);
+      toast("Producto agregado ✓");
+    }
+    resetForm();
+    // La lista se refresca sola por el listener en tiempo real
+  } catch (err) {
+    console.error(err);
+    toast(saveErrorMsg(err));
+  } finally {
+    btn.disabled = false;
   }
-  Store.saveProducts(products);
-  resetForm();
-  renderList();
 }
 
-function deleteProduct(id) {
-  const p = Store.getProducts().find((x) => x.id === id);
+function saveErrorMsg(err) {
+  if (err && err.code === "permission-denied")
+    return "No tienes permisos para guardar. Vuelve a iniciar sesión.";
+  return "No se pudo guardar. Revisa tu conexión e intenta de nuevo.";
+}
+
+async function deleteProduct(id) {
+  const p = Store.getProducts().find((x) => String(x.id) === String(id));
   if (!p) return;
   if (!confirm(`¿Eliminar "${p.name}"? Esta acción no se puede deshacer.`)) return;
-  const products = Store.getProducts().filter((x) => x.id !== id);
-  Store.saveProducts(products);
-  if (editingId === id) resetForm();
-  renderList();
-  toast("Producto eliminado");
+  try {
+    await productsCol().doc(String(id)).delete();
+    if (String(editingId) === String(id)) resetForm();
+    toast("Producto eliminado");
+  } catch (err) {
+    console.error(err);
+    toast(saveErrorMsg(err));
+  }
 }
 
-/* ---------------- Exportar / Importar ---------------- */
+/* ---------------- Categorías ---------------- */
+// Convierte "Laptops y Computadoras" -> "laptops-y-computadoras"
+function slugify(s) {
+  return String(s)
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, "") // quita acentos
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 40);
+}
+
+function bindCategoryForm() {
+  const form = $("#category-form");
+  if (!form) return;
+  form.addEventListener("submit", (e) => {
+    e.preventDefault();
+    saveCategory();
+  });
+}
+
+async function saveCategory() {
+  const name = $("#c-name").value.trim();
+  const short = $("#c-short").value.trim();
+  const img = $("#c-img").value.trim();
+  if (!name) {
+    toast("Escribe el nombre de la categoría.");
+    return;
+  }
+
+  const cats = Store.getCategories();
+  // Genera un id único a partir del nombre
+  let base = slugify(name) || "categoria";
+  let id = base;
+  let n = 2;
+  while (cats.some((c) => c.id === id)) id = `${base}-${n++}`;
+
+  const order = cats.reduce((max, c) => Math.max(max, typeof c.order === "number" ? c.order : 0), 0) + 1;
+
+  const btn = $("#category-form button[type=submit]");
+  btn.disabled = true;
+  try {
+    await categoriesCol().doc(id).set({
+      name,
+      short: short || name,
+      img,
+      order,
+      createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+    });
+    $("#category-form").reset();
+    toast("Categoría creada ✓");
+    // La lista se refresca sola por el listener en tiempo real
+  } catch (err) {
+    console.error(err);
+    toast(saveErrorMsg(err));
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+async function deleteCategory(id) {
+  const cats = Store.getCategories();
+  const c = cats.find((x) => x.id === id);
+  if (!c) return;
+  const count = Store.getProducts().filter((p) => p.category === id).length;
+  if (count > 0) {
+    toast(`No puedes eliminar "${c.name}": tiene ${count} producto(s). Muévelos o elimínalos primero.`);
+    return;
+  }
+  if (!confirm(`¿Eliminar la categoría "${c.name}"?`)) return;
+  try {
+    await categoriesCol().doc(id).delete();
+    toast("Categoría eliminada");
+  } catch (err) {
+    console.error(err);
+    toast(saveErrorMsg(err));
+  }
+}
+
+function renderCatList() {
+  const box = $("#cat-list");
+  if (!box) return;
+  const cats = Store.getCategories();
+  if (!cats.length) {
+    box.innerHTML = `<p class="admin-empty">No hay categorías todavía.</p>`;
+    return;
+  }
+  box.innerHTML = cats
+    .map((c) => {
+      const count = Store.getProducts().filter((p) => p.category === c.id).length;
+      return `
+    <div class="cat-chip">
+      <div class="cat-chip-meta">
+        <strong>${c.name}</strong>
+        <span>${count} producto(s)</span>
+      </div>
+      <button class="icon-btn danger" title="Eliminar categoría" data-delcat="${c.id}">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/></svg>
+      </button>
+    </div>`;
+    })
+    .join("");
+  $$("[data-delcat]", box).forEach((b) =>
+    b.addEventListener("click", () => deleteCategory(b.dataset.delcat))
+  );
+}
+
+/* ---------------- Respaldo JSON ---------------- */
 function download(filename, content, type) {
   const blob = new Blob([content], { type: type || "text/plain;charset=utf-8" });
   const url = URL.createObjectURL(blob);
@@ -246,53 +406,10 @@ function download(filename, content, type) {
   URL.revokeObjectURL(url);
 }
 
-/** Genera un products.js completo listo para reemplazar el archivo */
-function exportProductsJs() {
-  const products = Store.getProducts();
-  const header =
-    "/* ============================================================\n" +
-    "   Ingtec — Configuración del sitio y catálogo de productos\n" +
-    "   Generado desde el panel de administrador.\n" +
-    "   ============================================================ */\n\n";
-  const content =
-    header +
-    "const SITE = " + JSON.stringify(SITE, null, 2) + ";\n\n" +
-    "const CATEGORIES = " + JSON.stringify(CATEGORIES, null, 2) + ";\n\n" +
-    "const PRODUCTS = " + JSON.stringify(products, null, 2) + ";\n";
-  download("products.js", content, "text/javascript;charset=utf-8");
-  toast("products.js descargado. Reemplázalo en assets/js/ y haz git push.");
-}
-
 function exportJson() {
-  download("productos-backup.json", JSON.stringify(Store.getProducts(), null, 2), "application/json");
+  const clean = Store.getProducts().map(({ createdAt, ...rest }) => rest);
+  download("productos-backup.json", JSON.stringify(clean, null, 2), "application/json");
   toast("Respaldo JSON descargado ✓");
-}
-
-function importJson(e) {
-  const file = e.target.files[0];
-  if (!file) return;
-  const reader = new FileReader();
-  reader.onload = () => {
-    try {
-      const arr = JSON.parse(reader.result);
-      if (!Array.isArray(arr)) throw new Error("formato inválido");
-      Store.saveProducts(arr);
-      renderList();
-      toast(`Importados ${arr.length} producto(s) ✓`);
-    } catch (err) {
-      toast("Archivo JSON inválido.");
-    }
-    e.target.value = "";
-  };
-  reader.readAsText(file);
-}
-
-function resetCatalog() {
-  if (!confirm("¿Restaurar el catálogo original de products.js? Se perderán los cambios guardados en este navegador.")) return;
-  Store.reset();
-  resetForm();
-  renderList();
-  toast("Catálogo restaurado al original");
 }
 
 /* ---------------- Toast ---------------- */

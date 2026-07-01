@@ -19,3 +19,6 @@ dist/
 
 # Servidor de desarrollo local (no necesario en producción)
 dev-server.js
+
+# Firebase: caché de despliegue (no se versiona)
+.firebase/

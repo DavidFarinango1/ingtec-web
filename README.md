@@ -1,4 +1,4 @@
-# Ingtec — Tienda de Tecnología 💻
+# Ingetec — Tienda de Tecnología 💻
 
 Sitio web showcase de e-commerce para una tienda de tecnología en Quito, inspirado en la estructura de [bikeuio.com](https://bikeuio.com/). Productos por categorías y pedidos vía **WhatsApp** (sin pasarela de pago ni backend).
 
@@ -27,7 +27,7 @@ Casi todo se edita en **`assets/js/products.js`**:
 ### 1. Datos del negocio
 ```js
 const SITE = {
-  brand:    "Ingtec",
+  brand:    "Ingetec",
   phone:    "+593 99 999 9999",
   whatsapp: "593999999999",   // ⚠️ solo dígitos, con código de país (sin + ni espacios)
   email:    "ventasquito.soporte@gmail.com",

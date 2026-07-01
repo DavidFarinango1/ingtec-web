@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="robots" content="noindex, nofollow">
-  <title>Administrador · Ingtec</title>
+  <title>Administrador · Ingetec</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
@@ -18,15 +18,18 @@
     <div class="login-card">
       <a href="index.html" class="logo">
         <img src="assets/img/logo.png" alt="Ingetec" class="logo-img">
-        Ing<span class="dot">tec</span>
+        Inge<span class="dot">tec</span>
       </a>
       <h1>Panel de administrador</h1>
-      <p>Ingresa la contraseña para gestionar el catálogo.</p>
+      <p>Ingresa con tu correo y contraseña para gestionar el catálogo.</p>
       <form id="login-form">
+        <div class="field">
+          <input type="email" id="admin-email" placeholder="Correo" autocomplete="username" required>
+        </div>
         <div class="field">
           <input type="password" id="admin-pin" placeholder="Contraseña" autocomplete="current-password" required>
         </div>
-        <button type="submit" class="btn btn-primary btn-block">Ingresar</button>
+        <button type="submit" class="btn btn-primary btn-block" id="login-btn">Ingresar</button>
         <div class="login-error" id="login-error"></div>
       </form>
     </div>
@@ -39,11 +42,10 @@
       <div class="container admin-top-inner">
         <a href="index.html" class="logo">
           <img src="assets/img/logo.png" alt="Ingetec" class="logo-img">
-          Ing<span class="dot">tec</span>
+          Inge<span class="dot">tec</span>
         </a>
         <div class="right">
           <span class="admin-badge">Modo administrador</span>
-          <a href="index.html" target="_blank" class="btn btn-ghost btn-sm">Ver sitio ↗</a>
           <button class="btn btn-ghost btn-sm" id="logout-btn">Cerrar sesión</button>
         </div>
       </div>
@@ -52,9 +54,9 @@
     <main class="admin-wrap">
       <div class="container">
         <div class="admin-note">
-          <strong>Cómo guardar los cambios para todos:</strong> lo que agregas se guarda en <em>este navegador</em>.
-          Para publicarlo en el sitio real, pulsa <strong>“Exportar products.js”</strong>, reemplaza el archivo en
-          <code>assets/js/</code> y sube los cambios a GitHub con <code>git add . &amp;&amp; git commit -m "nuevos productos" &amp;&amp; git push</code>.
+          <strong>Guardado automático en la nube:</strong> cada producto que agregues, edites o elimines se
+          guarda en Firebase y aparece <em>al instante para todos los clientes</em> en el sitio. No necesitas
+          exportar archivos ni volver a publicar. 🎉
         </div>
 
         <div class="admin-grid">
@@ -121,24 +123,49 @@
             <div class="admin-list" id="admin-list"></div>
 
             <hr style="border:none; border-top:1px solid var(--border); margin:26px 0;">
-            <h2 style="font-size:1.05rem; margin-bottom:14px;">Publicar / Respaldar</h2>
+            <h2 style="font-size:1.05rem; margin-bottom:14px;">Respaldo</h2>
+            <p class="hint" style="margin-bottom:12px;">Descarga una copia de todos los productos (por seguridad).</p>
             <div class="form-actions">
-              <button class="btn btn-primary btn-sm" id="export-js">⬇ Exportar products.js</button>
-              <button class="btn btn-ghost btn-sm" id="export-json">Respaldo JSON</button>
-              <label class="btn btn-ghost btn-sm" style="cursor:pointer;">
-                Importar JSON
-                <input type="file" id="import-json" accept="application/json" hidden>
-              </label>
-              <button class="btn btn-ghost btn-sm" id="reset-btn">Restaurar original</button>
+              <button class="btn btn-ghost btn-sm" id="export-json">⬇ Descargar respaldo JSON</button>
             </div>
           </section>
         </div>
+
+        <!-- ===================== CATEGORÍAS ===================== -->
+        <section class="admin-panel" style="margin-top:24px;">
+          <h2>Categorías</h2>
+          <p class="hint">Crea las categorías del catálogo (Televisores, Laptops, Celulares…). Aparecen al instante en el sitio y en el selector de productos.</p>
+          <form id="category-form" class="cat-form">
+            <div class="field">
+              <label for="c-name">Nombre *</label>
+              <input type="text" id="c-name" placeholder="Ej: Laptops y Computadoras" required>
+            </div>
+            <div class="field">
+              <label for="c-short">Nombre corto</label>
+              <input type="text" id="c-short" placeholder="Ej: Laptops (opcional)">
+            </div>
+            <div class="field">
+              <label for="c-img">Imagen (URL)</label>
+              <input type="text" id="c-img" placeholder="https://... (opcional)">
+            </div>
+            <div class="form-actions">
+              <button type="submit" class="btn btn-primary btn-sm">Agregar categoría</button>
+            </div>
+          </form>
+          <hr style="border:none; border-top:1px solid var(--border); margin:22px 0;">
+          <div class="cat-list" id="cat-list"></div>
+        </section>
       </div>
     </main>
   </div>
 
   <script src="assets/js/icons.js"></script>
   <script src="assets/js/products.js"></script>
+  <!-- Firebase (nube): app + autenticación + base de datos -->
+  <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
+  <script src="assets/js/firebase-config.js"></script>
   <script src="assets/js/store.js"></script>
   <script src="assets/js/admin.js"></script>
 </body>

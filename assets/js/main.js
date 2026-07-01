@@ -1,5 +1,5 @@
 /* ============================================================
-   Ingtec — Lógica principal del sitio
+   Ingetec — Lógica principal del sitio
    ============================================================ */
 
 // --- Helpers ---
@@ -62,72 +62,105 @@ function productCard(p) {
 }
 
 function catName(id) {
-  const c = CATEGORIES.find((c) => c.id === id);
-  return c ? c.short : id;
+  const c = Store.getCategories().find((c) => c.id === id);
+  return c ? c.short || c.name : id;
+}
+
+// Texto de conteo por categoría (calculado desde los productos)
+function catCount(id) {
+  const n = Store.getProducts().filter((p) => p.category === id).length;
+  if (n === 0) return "Próximamente";
+  return n === 1 ? "1 producto" : `${n} productos`;
 }
 
 // --- Categorías (home) ---
 function renderCategories() {
   const grid = $("#cat-grid");
   if (!grid) return;
-  grid.innerHTML = CATEGORIES.map(
-    (c) => `
+  const cats = Store.getCategories();
+  grid.innerHTML = cats.length
+    ? cats
+        .map(
+          (c) => `
     <a class="cat-card reveal" href="catalogo.html?cat=${c.id}">
-      <img src="${c.img}" alt="${c.name}" loading="lazy">
+      <img src="${c.img || ""}" alt="${c.name}" loading="lazy" onerror="this.style.opacity=.2">
       <span class="arrow">${ICONS.arrow}</span>
       <div class="cat-body">
-        <span class="count">${c.count}</span>
+        <span class="count">${c.count || catCount(c.id)}</span>
         <h3>${c.name}</h3>
       </div>
     </a>`
-  ).join("");
+        )
+        .join("")
+    : "";
+  revealObserve();
 }
 
 // --- Productos destacados (home) ---
-function renderFeatured() {
+function renderFeatured(list) {
   const grid = $("#featured-grid");
   if (!grid) return;
-  const featured = Store.getProducts().slice(0, 4);
-  grid.innerHTML = featured.map(productCard).join("");
+  const featured = (list || Store.getProducts()).slice(0, 4);
+  grid.innerHTML = featured.length
+    ? featured.map(productCard).join("")
+    : `<p class="no-results">Pronto agregaremos productos aquí.</p>`;
+  revealObserve();
 }
 
 // --- Catálogo con filtros ---
-function renderCatalog() {
-  const grid = $("#catalog-grid");
-  if (!grid) return;
+let _catalogActive = null; // se fija desde la URL la primera vez
+let _catalogBound = false;
+
+// (Re)construye los botones de filtro a partir de las categorías actuales
+function buildFilterButtons() {
   const filterBar = $("#filters");
+  if (!filterBar) return;
+  const cats = Store.getCategories();
 
-  // Construir botones de filtro
-  const filters = [{ id: "all", short: "Todos" }, ...CATEGORIES];
-  filterBar.innerHTML = filters
-    .map(
-      (f) => `<button class="filter-btn" data-filter="${f.id}">${f.short}</button>`
-    )
-    .join("");
-
-  function apply(cat) {
-    const all = Store.getProducts();
-    const list = cat === "all" ? all : all.filter((p) => p.category === cat);
-    grid.innerHTML = list.length
-      ? list.map(productCard).join("")
-      : `<p class="no-results">No hay productos en esta categoría todavía.</p>`;
-    $$(".filter-btn", filterBar).forEach((b) =>
-      b.classList.toggle("active", b.dataset.filter === cat)
-    );
-    revealObserve();
+  // Estado inicial: desde la URL (?cat=...), solo la primera vez
+  if (_catalogActive === null) {
+    const initial = new URLSearchParams(location.search).get("cat");
+    _catalogActive = initial && cats.some((c) => c.id === initial) ? initial : "all";
   }
 
-  filterBar.addEventListener("click", (e) => {
-    const btn = e.target.closest(".filter-btn");
-    if (!btn) return;
-    apply(btn.dataset.filter);
-    history.replaceState(null, "", btn.dataset.filter === "all" ? "catalogo.html" : `?cat=${btn.dataset.filter}`);
-  });
+  const filters = [{ id: "all", short: "Todos" }, ...cats.map((c) => ({ id: c.id, short: c.short || c.name }))];
+  filterBar.innerHTML = filters
+    .map((f) => `<button class="filter-btn" data-filter="${f.id}">${f.short}</button>`)
+    .join("");
 
-  // Categoría inicial desde la URL (?cat=...)
-  const params = new URLSearchParams(location.search);
-  const initial = params.get("cat");
-  apply(initial && CATEGORIES.some((c) => c.id === initial) ? initial : "all");
+  // El listener se ata una sola vez (delegación sobre la barra)
+  if (!_catalogBound) {
+    _catalogBound = true;
+    filterBar.addEventListener("click", (e) => {
+      const btn = e.target.closest(".filter-btn");
+      if (!btn) return;
+      _catalogActive = btn.dataset.filter;
+      fillCatalog();
+      history.replaceState(null, "", _catalogActive === "all" ? "catalogo.html" : `?cat=${_catalogActive}`);
+    });
+  }
+}
+
+// Pinta el grid según el filtro activo y los datos actuales
+function fillCatalog(list) {
+  const grid = $("#catalog-grid");
+  const filterBar = $("#filters");
+  if (!grid || !filterBar) return;
+  const all = list || Store.getProducts();
+  const items = _catalogActive === "all" ? all : all.filter((p) => p.category === _catalogActive);
+  grid.innerHTML = items.length
+    ? items.map(productCard).join("")
+    : `<p class="no-results">No hay productos en esta categoría todavía.</p>`;
+  $$(".filter-btn", filterBar).forEach((b) =>
+    b.classList.toggle("active", b.dataset.filter === _catalogActive)
+  );
+  revealObserve();
+}
+
+function renderCatalog(list) {
+  if (!$("#catalog-grid")) return;
+  buildFilterButtons();
+  fillCatalog(list);
 }
 
 // --- Menú móvil ---
@@ -198,11 +231,19 @@ function initContactForm() {
 // --- Init ---
 document.addEventListener("DOMContentLoaded", () => {
   fillBrandData();
-  renderCategories();
-  renderFeatured();
-  renderCatalog();
   initNav();
   initContactForm();
   setYear();
   revealObserve();
+
+  // Datos en tiempo real (Firestore) — solo en páginas con catálogo/categorías
+  if ($("#featured-grid") || $("#catalog-grid") || $("#cat-grid")) {
+    Store.onChange((list) => {
+      renderCategories();
+      renderFeatured(list);
+      renderCatalog(list);
+    });
+  } else {
+    renderCategories();
+  }
 });

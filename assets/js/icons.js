@@ -1,5 +1,5 @@
 /* ============================================================
-   Ingtec — Íconos SVG inline (sin dependencias externas)
+   Ingetec — Íconos SVG inline (sin dependencias externas)
    ============================================================ */
 const ICONS = {
   whatsapp:
