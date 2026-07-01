@@ -27,7 +27,12 @@
           <input type="email" id="admin-email" placeholder="Correo" autocomplete="username" required>
         </div>
         <div class="field">
-          <input type="password" id="admin-pin" placeholder="Contraseña" autocomplete="current-password" required>
+          <div class="pass-wrap">
+            <input type="password" id="admin-pin" placeholder="Contraseña" autocomplete="current-password" required>
+            <button type="button" class="pass-toggle" id="pass-toggle" aria-label="Mostrar contraseña" title="Mostrar contraseña">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+            </button>
+          </div>
         </div>
         <button type="submit" class="btn btn-primary btn-block" id="login-btn">Ingresar</button>
         <div class="login-error" id="login-error"></div>
@@ -97,12 +102,9 @@
                 </select>
               </div>
               <div class="field">
-                <label for="f-img">Imagen (URL)</label>
-                <input type="text" id="f-img" placeholder="https://... o sube un archivo abajo">
-              </div>
-              <div class="field">
-                <label for="f-file">…o sube una imagen (máx. 1.5 MB)</label>
+                <label for="f-file">Imagen del producto (sube un archivo, máx. 1.5 MB)</label>
                 <input type="file" id="f-file" accept="image/*">
+                <input type="hidden" id="f-img">
               </div>
               <div class="form-actions">
                 <button type="submit" class="btn btn-primary"><span id="save-label">Agregar producto</span></button>
@@ -119,6 +121,7 @@
               </div>
               <button class="btn btn-ghost btn-sm" id="new-btn">+ Nuevo</button>
             </div>
+            <div class="admin-filters" id="admin-filters"></div>
             <p class="hint" id="count" style="margin-bottom:14px;"></p>
             <div class="admin-list" id="admin-list"></div>
 
@@ -144,12 +147,22 @@
               <label for="c-short">Nombre corto</label>
               <input type="text" id="c-short" placeholder="Ej: Laptops (opcional)">
             </div>
-            <div class="field">
-              <label for="c-img">Imagen (URL)</label>
-              <input type="text" id="c-img" placeholder="https://... (opcional)">
+            <div class="field cat-img-field">
+              <label>Imagen (opcional)</label>
+              <div class="cat-img-row">
+                <div class="cat-preview" id="c-preview">Sin imagen</div>
+                <div class="cat-img-inputs">
+                  <label class="btn btn-ghost btn-sm file-btn">
+                    ⬆ Subir imagen (máx. 1.5 MB)
+                    <input type="file" id="c-file" accept="image/*" hidden>
+                  </label>
+                </div>
+                <input type="hidden" id="c-img">
+              </div>
             </div>
-            <div class="form-actions">
-              <button type="submit" class="btn btn-primary btn-sm">Agregar categoría</button>
+            <div class="form-actions cat-actions">
+              <button type="submit" class="btn btn-primary btn-sm"><span id="cat-save-label">Agregar categoría</span></button>
+              <button type="button" class="btn btn-ghost btn-sm" id="cat-cancel-btn" style="display:none;">Cancelar</button>
             </div>
           </form>
           <hr style="border:none; border-top:1px solid var(--border); margin:22px 0;">

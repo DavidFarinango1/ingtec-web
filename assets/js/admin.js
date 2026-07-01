@@ -15,6 +15,7 @@ const productsCol = () => db.collection("products");
 const categoriesCol = () => db.collection("categories");
 
 let editingId = null; // null = creando nuevo
+let adminFilter = "all"; // filtro de categoría en la lista de productos
 
 /* ---------------- Login (Firebase Auth) ---------------- */
 function initLogin() {
@@ -54,6 +55,27 @@ function initLogin() {
   });
 
   $("#logout-btn").addEventListener("click", () => auth.signOut());
+
+  initPassToggle();
+}
+
+/* Mostrar / ocultar contraseña */
+const EYE = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>`;
+const EYE_OFF = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0112 20c-7 0-11-8-11-8a18.45 18.45 0 015.06-5.94M9.9 4.24A9.12 9.12 0 0112 4c7 0 11 8 11 8a18.5 18.5 0 01-2.16 3.19m-6.72-1.07a3 3 0 11-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>`;
+
+function initPassToggle() {
+  const btn = $("#pass-toggle");
+  const input = $("#admin-pin");
+  if (!btn || !input) return;
+  btn.addEventListener("click", () => {
+    const show = input.type === "password";
+    input.type = show ? "text" : "password";
+    btn.innerHTML = show ? EYE_OFF : EYE;
+    const label = show ? "Ocultar contraseña" : "Mostrar contraseña";
+    btn.setAttribute("aria-label", label);
+    btn.setAttribute("title", label);
+    input.focus();
+  });
 }
 
 function authErrorMsg(code) {
@@ -85,6 +107,7 @@ function initDashboard() {
   // Productos y categorías en tiempo real desde Firestore
   Store.onChange(() => {
     fillCategorySelect();
+    renderAdminFilters();
     renderList();
     renderCatList();
   });
@@ -109,12 +132,37 @@ function catName(id) {
   return c ? c.short || c.name : id;
 }
 
+/* ---------------- Filtros por categoría ---------------- */
+function renderAdminFilters() {
+  const box = $("#admin-filters");
+  if (!box) return;
+  const cats = Store.getCategories();
+  // Si el filtro activo ya no existe, vuelve a "Todos"
+  if (adminFilter !== "all" && !cats.some((c) => c.id === adminFilter)) adminFilter = "all";
+
+  const items = [{ id: "all", short: "Todos" }, ...cats.map((c) => ({ id: c.id, short: c.short || c.name }))];
+  box.innerHTML = items
+    .map(
+      (f) =>
+        `<button type="button" class="afilter${f.id === adminFilter ? " active" : ""}" data-afilter="${f.id}">${f.short}</button>`
+    )
+    .join("");
+  $$("[data-afilter]", box).forEach((b) =>
+    b.addEventListener("click", () => {
+      adminFilter = b.dataset.afilter;
+      renderAdminFilters();
+      renderList();
+    })
+  );
+}
+
 /* ---------------- Lista de productos ---------------- */
 function renderList() {
   const list = $("#admin-list");
   if (!list) return;
   const q = ($("#search").value || "").toLowerCase().trim();
   let products = Store.getProducts();
+  if (adminFilter !== "all") products = products.filter((p) => p.category === adminFilter);
   if (q) {
     products = products.filter(
       (p) =>
@@ -287,6 +335,8 @@ async function deleteProduct(id) {
 }
 
 /* ---------------- Categorías ---------------- */
+let editingCatId = null; // null = creando nueva
+
 // Convierte "Laptops y Computadoras" -> "laptops-y-computadoras"
 function slugify(s) {
   return String(s)
@@ -305,6 +355,57 @@ function bindCategoryForm() {
     e.preventDefault();
     saveCategory();
   });
+
+  // Vista previa al escribir/pegar una URL
+  $("#c-img").addEventListener("input", () => setCatPreview($("#c-img").value));
+
+  // Subir imagen como archivo (se guarda en base64)
+  $("#c-file").addEventListener("change", (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    if (file.size > 1.5 * 1024 * 1024) {
+      toast("La imagen es muy pesada (máx. 1.5 MB). Usa una más liviana o una URL.");
+      e.target.value = "";
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = () => {
+      $("#c-img").value = reader.result;
+      setCatPreview(reader.result);
+    };
+    reader.readAsDataURL(file);
+  });
+
+  $("#cat-cancel-btn").addEventListener("click", () => resetCategoryForm());
+}
+
+function setCatPreview(src) {
+  const box = $("#c-preview");
+  if (!box) return;
+  box.innerHTML = src
+    ? `<img src="${src}" alt="preview" onerror="this.parentNode.textContent='Sin imagen'">`
+    : "Sin imagen";
+}
+
+function resetCategoryForm() {
+  editingCatId = null;
+  $("#category-form").reset();
+  setCatPreview("");
+  $("#cat-save-label").textContent = "Agregar categoría";
+  $("#cat-cancel-btn").style.display = "none";
+}
+
+function editCategory(id) {
+  const c = Store.getCategories().find((x) => x.id === id);
+  if (!c) return;
+  editingCatId = id;
+  $("#c-name").value = c.name || "";
+  $("#c-short").value = c.short || "";
+  $("#c-img").value = c.img || "";
+  setCatPreview(c.img || "");
+  $("#cat-save-label").textContent = "Guardar cambios";
+  $("#cat-cancel-btn").style.display = "inline-flex";
+  $("#category-form").scrollIntoView({ behavior: "smooth", block: "center" });
 }
 
 async function saveCategory() {
@@ -316,27 +417,34 @@ async function saveCategory() {
     return;
   }
 
-  const cats = Store.getCategories();
-  // Genera un id único a partir del nombre
-  let base = slugify(name) || "categoria";
-  let id = base;
-  let n = 2;
-  while (cats.some((c) => c.id === id)) id = `${base}-${n++}`;
-
-  const order = cats.reduce((max, c) => Math.max(max, typeof c.order === "number" ? c.order : 0), 0) + 1;
-
   const btn = $("#category-form button[type=submit]");
   btn.disabled = true;
   try {
-    await categoriesCol().doc(id).set({
-      name,
-      short: short || name,
-      img,
-      order,
-      createdAt: firebase.firestore.FieldValue.serverTimestamp(),
-    });
-    $("#category-form").reset();
-    toast("Categoría creada ✓");
+    if (editingCatId != null) {
+      // Editar: conserva el id (los productos lo usan) y actualiza los datos
+      await categoriesCol().doc(String(editingCatId)).set(
+        { name, short: short || name, img },
+        { merge: true }
+      );
+      toast("Categoría actualizada ✓");
+    } else {
+      // Crear: genera un id único a partir del nombre
+      const cats = Store.getCategories();
+      let base = slugify(name) || "categoria";
+      let id = base;
+      let n = 2;
+      while (cats.some((c) => c.id === id)) id = `${base}-${n++}`;
+      const order = cats.reduce((max, c) => Math.max(max, typeof c.order === "number" ? c.order : 0), 0) + 1;
+      await categoriesCol().doc(id).set({
+        name,
+        short: short || name,
+        img,
+        order,
+        createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+      });
+      toast("Categoría creada ✓");
+    }
+    resetCategoryForm();
     // La lista se refresca sola por el listener en tiempo real
   } catch (err) {
     console.error(err);
@@ -358,6 +466,7 @@ async function deleteCategory(id) {
   if (!confirm(`¿Eliminar la categoría "${c.name}"?`)) return;
   try {
     await categoriesCol().doc(id).delete();
+    if (String(editingCatId) === String(id)) resetCategoryForm();
     toast("Categoría eliminada");
   } catch (err) {
     console.error(err);
@@ -376,18 +485,30 @@ function renderCatList() {
   box.innerHTML = cats
     .map((c) => {
       const count = Store.getProducts().filter((p) => p.category === c.id).length;
+      const thumb = c.img
+        ? `<img class="cat-chip-thumb" src="${c.img}" alt="" onerror="this.style.display='none'">`
+        : "";
       return `
     <div class="cat-chip">
+      ${thumb}
       <div class="cat-chip-meta">
         <strong>${c.name}</strong>
         <span>${count} producto(s)</span>
       </div>
-      <button class="icon-btn danger" title="Eliminar categoría" data-delcat="${c.id}">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/></svg>
-      </button>
+      <div class="cat-chip-acts">
+        <button class="icon-btn" title="Editar categoría" data-editcat="${c.id}">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+        </button>
+        <button class="icon-btn danger" title="Eliminar categoría" data-delcat="${c.id}">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/></svg>
+        </button>
+      </div>
     </div>`;
     })
     .join("");
+  $$("[data-editcat]", box).forEach((b) =>
+    b.addEventListener("click", () => editCategory(b.dataset.editcat))
+  );
   $$("[data-delcat]", box).forEach((b) =>
     b.addEventListener("click", () => deleteCategory(b.dataset.delcat))
   );

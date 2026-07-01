@@ -210,21 +210,45 @@ function toast(msg) {
   t._timer = setTimeout(() => t.classList.remove("show"), 4000);
 }
 
-// --- Formulario de contacto → WhatsApp ---
+// --- Formulario de contacto → correo (FormSubmit) ---
 function initContactForm() {
   const form = $("#contact-form");
   if (!form) return;
-  form.addEventListener("submit", (e) => {
+
+  form.addEventListener("submit", async (e) => {
     e.preventDefault();
-    const data = new FormData(form);
-    const msg =
-      `¡Hola ${SITE.brand}! Mi nombre es ${data.get("nombre")}.\n` +
-      `Asunto: ${data.get("asunto")}\n` +
-      `Mensaje: ${data.get("mensaje")}\n` +
-      `Mi correo: ${data.get("email")} · Tel: ${data.get("telefono") || "—"}`;
-    window.open(waLink(msg), "_blank", "noopener");
-    toast("Te redirigimos a WhatsApp para enviar tu mensaje ✓");
-    form.reset();
+    const btn = form.querySelector("button[type=submit]");
+    const original = btn.innerHTML;
+    btn.disabled = true;
+    btn.textContent = "Enviando...";
+
+    try {
+      const data = new FormData(form);
+      // Opciones de FormSubmit
+      data.append("_subject", `Nuevo mensaje de ${data.get("nombre") || "un cliente"} — ${SITE.brand}`);
+      data.append("_template", "table");
+      data.append("_captcha", "false");
+
+      const res = await fetch("https://formsubmit.co/ajax/" + SITE.email, {
+        method: "POST",
+        headers: { Accept: "application/json" },
+        body: data,
+      });
+      const json = await res.json().catch(() => ({}));
+
+      if (res.ok && String(json.success) === "true") {
+        toast("¡Mensaje enviado! Te responderemos a tu correo pronto. ✓");
+        form.reset();
+      } else {
+        throw new Error(json.message || "No se pudo enviar");
+      }
+    } catch (err) {
+      console.error("Contacto:", err);
+      toast("No se pudo enviar. Inténtalo de nuevo o escríbenos por WhatsApp.");
+    } finally {
+      btn.disabled = false;
+      btn.innerHTML = original;
+    }
   });
 }
 

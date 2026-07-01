@@ -474,6 +474,27 @@ section { padding: 88px 0; }
   100% { box-shadow: 0 10px 30px rgba(37,211,102,.45), 0 0 0 0 rgba(37,211,102,0); }
 }
 
+/* ---------- Redes sociales flotantes (encima de WhatsApp) ---------- */
+.social-float {
+  position: fixed; right: 26px; bottom: 94px; z-index: 90;
+  display: flex; flex-direction: column; gap: 12px;
+}
+.social-btn {
+  width: 54px; height: 54px; border-radius: 50%;
+  display: grid; place-items: center; color: #fff;
+  box-shadow: 0 8px 22px rgba(0, 0, 0, 0.35);
+  transition: transform 0.2s;
+}
+.social-btn:hover { transform: scale(1.08); }
+.social-btn svg { width: 26px; height: 26px; }
+.social-btn.fb { background: #1877f2; }
+.social-btn.ig { background: radial-gradient(circle at 30% 107%, #fdf497 0%, #fdf497 5%, #fd5949 45%, #d6249f 60%, #285aeb 90%); }
+@media (max-width: 480px) {
+  .social-float { right: 22px; bottom: 84px; }
+  .social-btn { width: 48px; height: 48px; }
+  .social-btn svg { width: 23px; height: 23px; }
+}
+
 /* ---------- Toast ---------- */
 .toast {
   position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%) translateY(120px);
@@ -584,18 +605,54 @@ section { padding: 88px 0; }
 .admin-note strong { color: var(--text); }
 .admin-empty { text-align: center; color: var(--muted); padding: 40px 0; }
 
+/* Filtros por categoría en la lista de productos (panel admin) */
+.admin-filters { display: flex; flex-wrap: wrap; gap: 8px; margin: 16px 0 4px; }
+.admin-filters .afilter {
+  padding: 6px 14px; border-radius: 999px; cursor: pointer;
+  border: 1px solid var(--border); background: var(--bg);
+  color: var(--text-soft); font-size: 0.82rem; font-weight: 500;
+  transition: color 0.15s, background 0.15s, border-color 0.15s;
+}
+.admin-filters .afilter:hover { color: var(--text); border-color: var(--primary); }
+.admin-filters .afilter.active { background: var(--primary); border-color: var(--primary); color: #04211d; font-weight: 700; }
+
+/* Campo de contraseña con botón para mostrar/ocultar */
+.pass-wrap { position: relative; }
+.pass-wrap input { width: 100%; padding-right: 46px; }
+.pass-toggle {
+  position: absolute; right: 6px; top: 50%; transform: translateY(-50%);
+  background: none; border: none; color: var(--muted); cursor: pointer;
+  display: grid; place-items: center; padding: 8px; border-radius: 8px;
+  transition: color 0.2s;
+}
+.pass-toggle:hover { color: var(--primary); }
+.pass-toggle svg { width: 20px; height: 20px; }
+
 /* ---------- Categorías (panel admin) ---------- */
-.cat-form { display: grid; grid-template-columns: 1fr 1fr 1fr auto; gap: 12px; align-items: end; }
-.cat-form .form-actions { margin: 0; }
+.cat-form { display: grid; grid-template-columns: 1fr 1fr; gap: 14px 16px; align-items: start; }
+.cat-form .cat-img-field, .cat-form .cat-actions { grid-column: 1 / -1; }
+.cat-form .cat-actions { margin: 0; }
+.cat-img-row { display: flex; gap: 12px; align-items: center; }
+.cat-preview {
+  width: 68px; height: 50px; border-radius: 8px; flex-shrink: 0;
+  background: var(--bg); border: 1px solid var(--border);
+  display: grid; place-items: center; overflow: hidden;
+  font-size: 0.68rem; color: var(--muted); text-align: center;
+}
+.cat-preview img { width: 100%; height: 100%; object-fit: cover; }
+.cat-img-inputs { display: flex; flex-direction: column; gap: 8px; flex: 1; }
+.file-btn { cursor: pointer; display: inline-flex; align-items: center; justify-content: center; }
 .cat-list { display: flex; flex-wrap: wrap; gap: 10px; }
 .cat-chip {
-  display: flex; align-items: center; gap: 12px;
+  display: flex; align-items: center; gap: 10px;
   background: var(--bg); border: 1px solid var(--border);
   border-radius: 10px; padding: 8px 8px 8px 14px;
 }
+.cat-chip-thumb { width: 40px; height: 32px; border-radius: 6px; object-fit: cover; background: var(--panel); }
 .cat-chip-meta { display: flex; flex-direction: column; line-height: 1.2; }
 .cat-chip-meta strong { font-size: 0.9rem; }
 .cat-chip-meta span { font-size: 0.75rem; color: var(--muted); }
+.cat-chip-acts { display: flex; gap: 4px; }
 @media (max-width: 720px) { .cat-form { grid-template-columns: 1fr; } }
 
 @media (max-width: 900px) {
